@@ -12,26 +12,6 @@ local function isTicketResolved(ticket)
     return false
 end
 
-local function httpWithRetry(options, callback)
-    noctalia.http(options, function(res)
-        if res and res.ok then
-            callback(res)
-        else
-            local newHeaders = {}
-            if options.headers then
-                for _, h in ipairs(options.headers) do
-                    table.insert(newHeaders, h)
-                end
-            end
-            table.insert(newHeaders, "Connection: close")
-            noctalia.http({
-                url = options.url,
-                headers = newHeaders
-            }, callback)
-        end
-    end)
-end
-
 local function fetchTickets()
     local subdomain = noctalia.getConfig("subdomain")
     local api_key = noctalia.getConfig("api_key")
@@ -51,9 +31,9 @@ local function fetchTickets()
         local assignedFetched = 0
         for p = 1, 2 do
             local url = string.format("https://%s.syncromsp.com/api/v1/tickets?user_id=%s&per_page=100&page=%d", subdomain, user_id, p)
-            httpWithRetry({
+            noctalia.http({
                 url = url,
-                headers = { "Authorization: Bearer " .. api_key, "Accept: application/json" }
+                headers = { "Authorization: Bearer " .. api_key, "Accept: application/json", "Connection: close" }
             }, function(res)
                 assignedFetched = assignedFetched + 1
                 if res and res.ok then
@@ -91,9 +71,9 @@ local function fetchTickets()
     local targetUnassignedPages = 5
     for p = 1, targetUnassignedPages do
         local unassignedUrl = string.format("https://%s.syncromsp.com/api/v1/tickets?unassigned=true&per_page=100&page=%d", subdomain, p)
-        httpWithRetry({
+        noctalia.http({
             url = unassignedUrl,
-            headers = { "Authorization: Bearer " .. api_key, "Accept: application/json" }
+            headers = { "Authorization: Bearer " .. api_key, "Accept: application/json", "Connection: close" }
         }, function(res)
             unassignedFetched = unassignedFetched + 1
             if res and res.ok then
