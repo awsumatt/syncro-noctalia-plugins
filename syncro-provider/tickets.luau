@@ -91,26 +91,6 @@ local function sortTickets(tickets, sortBy)
     end)
 end
 
-local function httpWithRetry(options, callback)
-    noctalia.http(options, function(res)
-        if res and res.ok then
-            callback(res)
-        else
-            local newHeaders = {}
-            if options.headers then
-                for _, h in ipairs(options.headers) do
-                    table.insert(newHeaders, h)
-                end
-            end
-            table.insert(newHeaders, "Connection: close")
-            noctalia.http({
-                url = options.url,
-                headers = newHeaders
-            }, callback)
-        end
-    end)
-end
-
 function onQuery(text)
     local subdomain, api_key, timeFilter, sortBy = getConfigValues()
 
@@ -149,19 +129,19 @@ function onQuery(text)
     -- Step 1: Call /search endpoint
     local searchUrl = string.format("https://%s.syncromsp.com/api/v1/search?query=%s", subdomain, noctalia.string.urlEncode(text))
 
-    httpWithRetry({
+    noctalia.http({
         url = searchUrl,
         headers = {
             "Authorization: Bearer " .. api_key,
             "Accept: application/json"
         }
     }, function(res)
-        if not res or not res.ok then
+        if not res.ok then
             launcher.setResults(text, {
                 {
                     id = "error",
-                    title = "Syncro API Error (" .. tostring(res and res.status or "unknown") .. ")",
-                    subtitle = res and res.body and string.sub(res.body, 1, 100) or "Unknown error",
+                    title = "Syncro API Error (" .. tostring(res.status) .. ")",
+                    subtitle = res.body and string.sub(res.body, 1, 100) or "Unknown error",
                     glyph = "alert-circle"
                 }
             })
@@ -218,7 +198,7 @@ function onQuery(text)
 
         for _, num in ipairs(ticketNumbers) do
             local ticketUrl = string.format("https://%s.syncromsp.com/api/v1/tickets?number=%s", subdomain, num)
-            httpWithRetry({
+            noctalia.http({
                 url = ticketUrl,
                 headers = {
                     "Authorization: Bearer " .. api_key,
@@ -226,7 +206,7 @@ function onQuery(text)
                 }
             }, function(tRes)
                 pending = pending - 1
-                if tRes and tRes.ok then
+                if tRes.ok then
                     local tData = noctalia.json.decode(tRes.body)
                     if tData then
                         local list = tData.tickets or tData
